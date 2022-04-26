@@ -34,6 +34,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from torch.nn.modules import rnn
+from rsl_rl.modules.models.simple_cnn import SimpleCNN
 
 
 class ActorCritic(nn.Module):
@@ -43,9 +44,14 @@ class ActorCritic(nn.Module):
         self,
         num_actor_obs,
         num_critic_obs,
+        num_encoder_obs,
         num_actions,
         actor_hidden_dims=[256, 256, 256],
         critic_hidden_dims=[256, 256, 256],
+        encoder_input_size=[1, 11, 17],
+        encoder_output_size=32,
+        encoder_hidden_dims=[128, 64, 32],
+        train_type="priv",  # standard, priv, lbc
         activation="elu",
         init_noise_std=1.0,
         **kwargs,
@@ -58,6 +64,7 @@ class ActorCritic(nn.Module):
         super(ActorCritic, self).__init__()
 
         activation = get_activation(activation)
+        self.train_type = train_type
 
         mlp_input_dim_a = num_actor_obs
         mlp_input_dim_c = num_critic_obs
@@ -90,8 +97,35 @@ class ActorCritic(nn.Module):
                 critic_layers.append(activation)
         self.critic = nn.Sequential(*critic_layers)
 
+        # initialize encoder
+        # class observationSpace():
+        #     def __init__(self):
+        #         self.spaces = {"depth": torch.zeros(encoder_input_size)}
+
+        # print("num_enc_obs: ", num_encoder_obs, " enc inp size: ", encoder_input_size)
+        # if num_encoder_obs != -1 and encoder_input_size is not None:
+        #     self.encoder = SimpleCNN(observationSpace(), encoder_output_size)
+        # else:
+        #     self.encoder = None
+        
+        if num_encoder_obs != -1 and encoder_hidden_dims is not None:
+            self.encoder = nn.Sequential(
+                nn.Linear(num_encoder_obs, encoder_hidden_dims[0]),
+                nn.ReLU(),
+                nn.Linear(encoder_hidden_dims[0], encoder_hidden_dims[1]),
+                nn.ReLU(),
+                nn.Linear(encoder_hidden_dims[1], encoder_hidden_dims[2]),
+            )
+        else:
+            # print("NO ENCODER: ")
+            self.encoder = None
+
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
+        print(f"ENCODER MLP: {self.encoder}")
+        print("Train Type: ", self.train_type)
+
+        # self.encoder_input_rows, self.encoder_input_cols, _ = encoder_input_size
 
         # Action noise
         self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
@@ -135,7 +169,23 @@ class ActorCritic(nn.Module):
         mean = self.actor(observations)
         self.distribution = Normal(mean, mean * 0.0 + self.std)
 
+    
+    def _trans_dm(self, depth_map):
+        envs, _ = depth_map.shape
+        depth_map = depth_map.view(envs, self.encoder_input_rows, self.encoder_input_cols, 1)
+
+        dm_dict = {"depth": depth_map}
+        return dm_dict
+
     def act(self, observations, **kwargs):
+        if self.train_type == "priv" and self.encoder is not None:
+            depth_map = observations[:, 48:]  # everything after inital observations
+            # dm_dict = self._trans_dm(depth_map)
+            enc_depth_map = self.encoder(depth_map)
+            # print("ENC DM: ", enc_depth_map)
+            observations = torch.cat((observations[:, :48], enc_depth_map), dim=-1)
+            # print("full obs shape: ", observations.shape)
+
         self.update_distribution(observations)
         return self.distribution.sample()
 
@@ -143,6 +193,12 @@ class ActorCritic(nn.Module):
         return self.distribution.log_prob(actions).sum(dim=-1)
 
     def act_inference(self, observations):
+        if self.train_type == "priv" and self.encoder is not None:
+            depth_map = observations[:, 48:]  # everything after inital observations
+            # dm_dict = self._trans_dm(depth_map)
+            enc_depth_map = self.encoder(depth_map)
+            observations = torch.cat((observations[:, :48], enc_depth_map), dim=-1)
+
         actions_mean = self.actor(observations)
         return actions_mean
 

@@ -39,6 +39,8 @@ import torch
 from rsl_rl.algorithms import PPO
 from rsl_rl.modules import ActorCritic, ActorCriticRecurrent
 from rsl_rl.env import VecEnv
+from pytorch_memlab import MemReporter
+
 
 
 class OnPolicyRunner:
@@ -49,13 +51,34 @@ class OnPolicyRunner:
         self.policy_cfg = train_cfg["policy"]
         self.device = device
         self.env = env
+        envcfg = self.env.cfg
+
         if self.env.num_privileged_obs is not None:
             num_critic_obs = self.env.num_privileged_obs
         else:
             num_critic_obs = self.env.num_obs
         actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
+
+
+        print("traincfg: ", train_cfg)
+        # enc_inp_size = train_cfg["obsSize"]["encoder_input_size"]
+        # enc_out_size = train_cfg["obsSize"]["encoder_output_size"]
+        enc_hidden_dims = train_cfg["obsSize"]["encoder_hidden_dims"]
+
+
+        # if enc_inp_size is not None:
+        if enc_hidden_dims is not None:
+            num_encoder_obs = self.env.num_obs - envcfg.env.num_proprio_obs
+            # num_actor_obs = envcfg.env.num_proprio_obs + enc_out_size
+            num_actor_obs = envcfg.env.num_proprio_obs + enc_hidden_dims[-1]
+        else:
+            num_actor_obs = self.env.num_obs
+            num_encoder_obs = -1
+
+        
+        actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
         actor_critic: ActorCritic = actor_critic_class(
-            self.env.num_obs, num_critic_obs, self.env.num_actions, **self.policy_cfg
+            num_actor_obs, num_critic_obs, num_encoder_obs, self.env.num_actions, encoder_hidden_dims=enc_hidden_dims, **self.policy_cfg
         ).to(self.device)
         alg_class = eval(self.cfg["algorithm_class_name"])  # PPO
         self.alg: PPO = alg_class(actor_critic, device=self.device, **self.alg_cfg)
@@ -79,6 +102,8 @@ class OnPolicyRunner:
         self.current_learning_iteration = 0
 
         _, _ = self.env.reset()
+
+    # def learn2(self):
 
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
         # initialize writer
@@ -104,14 +129,26 @@ class OnPolicyRunner:
             self.env.num_envs, dtype=torch.float, device=self.device
         )
 
+        reporter = MemReporter()
+
         tot_iter = self.current_learning_iteration + num_learning_iterations
         for it in range(self.current_learning_iteration, tot_iter):
             start = time.time()
+            # reporter.report()
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
-                    obs, privileged_obs, rewards, dones, infos = self.env.step(actions)
+                    
+                    (
+                        obs,
+                        privileged_obs,
+                        rewards,
+                        dones,
+                        infos,
+                    ) = self.env.step(actions)
+                    # print("Obs shape: ", obs.shape)
+                    # print("Priv obs shape: ", privileged_obs.shape)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     obs, critic_obs, rewards, dones = (
                         obs.to(self.device),
