@@ -37,6 +37,26 @@ from torch.nn.modules import rnn
 from rsl_rl.modules.models.simple_cnn import SimpleCNN
 
 
+class DmEncoder(nn.Module):
+    def __init__(self, num_encoder_obs, encoder_hidden_dims):
+        super().__init__()
+        
+        self.encoder = nn.Sequential(
+            nn.Linear(num_encoder_obs, encoder_hidden_dims[0]),
+            nn.ReLU(),
+            nn.Linear(encoder_hidden_dims[0], encoder_hidden_dims[1]),
+            nn.ReLU(),
+            nn.Linear(encoder_hidden_dims[1], encoder_hidden_dims[2]),
+        )
+    
+    def forward(self, dm):
+        """
+        Encodes depth map
+        Input:
+            dm: a depth map usually shape (187)
+        """
+        return self.encoder(dm)
+
 class ActorCritic(nn.Module):
     is_recurrent = False
 
@@ -109,13 +129,7 @@ class ActorCritic(nn.Module):
         #     self.encoder = None
         
         if num_encoder_obs != -1 and encoder_hidden_dims is not None:
-            self.encoder = nn.Sequential(
-                nn.Linear(num_encoder_obs, encoder_hidden_dims[0]),
-                nn.ReLU(),
-                nn.Linear(encoder_hidden_dims[0], encoder_hidden_dims[1]),
-                nn.ReLU(),
-                nn.Linear(encoder_hidden_dims[1], encoder_hidden_dims[2]),
-            )
+            self.encoder = DmEncoder(num_encoder_obs, encoder_hidden_dims)
         else:
             # print("NO ENCODER: ")
             self.encoder = None

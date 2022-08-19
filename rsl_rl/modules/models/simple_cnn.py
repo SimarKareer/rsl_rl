@@ -31,12 +31,12 @@ class SimpleCNN(nn.Module):
             self._n_input_depth = 0
 
         # kernel size for different CNN layers
-        self._cnn_layers_kernel_size = [(6, 6), (4, 4), (3, 3)]
+        self._cnn_layers_kernel_size = [(8, 8), (4, 4), (3, 3)]
         # self._cnn_layers_kernel_size = [(6, 6), (3, 3), (2, 2)]
 
         # strides for different CNN layers
-        # self._cnn_layers_stride = [(4, 4), (2, 2), (1, 1)]
-        self._cnn_layers_stride = [(2, 2), (1, 1), (1, 1)]
+        self._cnn_layers_stride = [(4, 4), (2, 2), (1, 1)]
+        # self._cnn_layers_stride = [(2, 2), (1, 1), (1, 1)]
 
         if self._n_input_rgb > 0:
             cnn_dims = np.array(
