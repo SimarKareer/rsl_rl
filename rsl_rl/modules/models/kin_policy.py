@@ -4,9 +4,10 @@ import numpy as np
 import torch
 from gym import spaces
 from gym.spaces import Dict as SpaceDict
-
 from habitat_baselines.rl.ddppo.policy.resnet_policy import PointNavResNetPolicy
 from habitat_baselines.utils.common import batch_obs
+
+PRINT_TIME = False
 
 
 class RealPolicy:
@@ -72,7 +73,8 @@ class RealPolicy:
                 deterministic=True,
             )
             inf_time = time.time() - start_time
-            print(f"Inference time: {inf_time}")
+            if PRINT_TIME:
+                print(f"Inference time: {inf_time}")
         self.prev_actions.copy_(actions)
         self.not_done_masks = torch.ones(1, 1, dtype=torch.bool, device=self.device)
 
