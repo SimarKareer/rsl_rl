@@ -42,7 +42,6 @@ from rsl_rl.env import VecEnv
 from pytorch_memlab import MemReporter
 
 
-
 class OnPolicyRunner:
     def __init__(self, env: VecEnv, train_cfg, log_dir=None, device="cpu"):
 
@@ -59,12 +58,10 @@ class OnPolicyRunner:
             num_critic_obs = self.env.num_obs
         actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
 
-
         print("traincfg: ", train_cfg)
         # enc_inp_size = train_cfg["obsSize"]["encoder_input_size"]
         # enc_out_size = train_cfg["obsSize"]["encoder_output_size"]
         enc_hidden_dims = train_cfg["obsSize"]["encoder_hidden_dims"]
-
 
         # if enc_inp_size is not None:
         if enc_hidden_dims is not None:
@@ -75,10 +72,14 @@ class OnPolicyRunner:
             num_actor_obs = self.env.num_obs
             num_encoder_obs = -1
 
-        
         actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
         actor_critic: ActorCritic = actor_critic_class(
-            num_actor_obs, num_critic_obs, num_encoder_obs, self.env.num_actions, encoder_hidden_dims=enc_hidden_dims, **self.policy_cfg
+            num_actor_obs,
+            num_critic_obs,
+            num_encoder_obs,
+            self.env.num_actions,
+            encoder_hidden_dims=enc_hidden_dims,
+            **self.policy_cfg,
         ).to(self.device)
         alg_class = eval(self.cfg["algorithm_class_name"])  # PPO
         self.alg: PPO = alg_class(actor_critic, device=self.device, **self.alg_cfg)
@@ -100,6 +101,7 @@ class OnPolicyRunner:
         self.tot_timesteps = 0
         self.tot_time = 0
         self.current_learning_iteration = 0
+        self.latest_mean_rew = -1234321
 
         _, _ = self.env.reset()
 
@@ -139,7 +141,7 @@ class OnPolicyRunner:
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
-                    
+
                     (
                         obs,
                         privileged_obs,
@@ -187,13 +189,20 @@ class OnPolicyRunner:
             if self.log_dir is not None:
                 self.log(locals())
             if it % self.save_interval == 0:
-                self.save(os.path.join(self.log_dir, "model_{}.pt".format(it)))
+                self.save(
+                    os.path.join(
+                        self.log_dir,
+                        f"model_{it}_{self.latest_mean_rew}.pt",
+                    )
+                )
             ep_infos.clear()
 
         self.current_learning_iteration += num_learning_iterations
         self.save(
             os.path.join(
-                self.log_dir, "model_{}.pt".format(self.current_learning_iteration)
+                self.log_dir,
+                f"model_{self.current_learning_iteration}"
+                f"_{self.latest_mean_rew}.pt",
             )
         )
 
@@ -270,6 +279,7 @@ class OnPolicyRunner:
                 f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
                 f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
             )
+            self.latest_mean_rew = statistics.mean(locs['rewbuffer'])
             #   f"""{'Mean reward/step:':>{pad}} {locs['mean_reward']:.2f}\n"""
             #   f"""{'Mean episode length/episode:':>{pad}} {locs['mean_trajectory_length']:.2f}\n""")
         else:
