@@ -270,30 +270,13 @@ class RNNStateEncoder(nn.Module):
         self, x, hidden_states, masks
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Forward for a non-sequence input"""
-
-        hidden_states = (
-            torch.where(
+        if hidden_states is not None:
+            hidden_states = torch.where(
                 masks.view(1, -1, 1), hidden_states, hidden_states.new_zeros(())
             )
-            if hidden_states is not None
-            else None
-        )
-
-        # print("x: ", x.shape)
-        # print("hidden: ", hidden_states.shape)
-        # print("hidden unpack: ", self.unpack_hidden(hidden_states))
-
-        if hidden_states is None:
-            x, hidden_states = self.rnn(x.unsqueeze(0))
-        else:
-            x, hidden_states = self.rnn(
-                x.unsqueeze(0), self.unpack_hidden(hidden_states)
-            )
+            hidden_states = self.unpack_hidden(hidden_states)
+        x, hidden_states = self.rnn(x.unsqueeze(0), hidden_states)
         hidden_states = self.pack_hidden(hidden_states)
-
-        # x, hidden_states = self.rnn(
-        #     x.unsqueeze(0), hidden_states
-        # )
 
         x = x.squeeze(0)
         return x, hidden_states
