@@ -15,7 +15,6 @@ class RealPolicy:
         self.device = device
         checkpoint = torch.load(checkpoint, map_location="cpu")
         config = checkpoint["config"]
-        print(config)
         if "num_cnns" not in config.RL.POLICY:
             config.RL.POLICY["num_cnns"] = 1
         """ Disable observation transforms for real world experiments """
@@ -28,7 +27,6 @@ class RealPolicy:
             observation_space=observation_space,
             action_space=action_space,
         )
-        print("Actor-critic architecture:", self.policy)
         # Move it to the device
         self.policy.to(self.device)
         # Load trained weights into the policy
@@ -36,7 +34,6 @@ class RealPolicy:
         # If using Splitnet policy, filter out decoder stuff, as it's not used at test-time
         self.policy.load_state_dict(
             {k[len("actor_critic.") :]: v for k, v in checkpoint["state_dict"].items()},
-            # strict=True,
             strict=False,
         )
 
