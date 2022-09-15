@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
+import os
 
 import torch
 import torch.nn as nn
@@ -92,8 +93,8 @@ class PPO:
         self.storage = RolloutStorage(
             num_envs,
             num_transitions_per_env,
-            actor_obs_shape,
-            critic_obs_shape,
+            actor_obs_shape if os.environ["ISAAC_BLIND"] != "True" else actor_obs_shape - 187,
+            critic_obs_shape if os.environ["ISAAC_BLIND"] != "True" else critic_obs_shape - 187,
             action_shape,
             self.device,
         )
