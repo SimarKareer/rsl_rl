@@ -90,11 +90,16 @@ class PPO:
         critic_obs_shape,
         action_shape,
     ):
+        a_shape = (
+            actor_obs_shape
+            if os.environ["ISAAC_BLIND"] != "True"
+            else [actor_obs_shape[0] - 187]
+        )
         self.storage = RolloutStorage(
             num_envs,
             num_transitions_per_env,
-            actor_obs_shape if os.environ["ISAAC_BLIND"] != "True" else actor_obs_shape - 187,
-            critic_obs_shape if os.environ["ISAAC_BLIND"] != "True" else critic_obs_shape - 187,
+            a_shape,
+            critic_obs_shape,
             action_shape,
             self.device,
         )
