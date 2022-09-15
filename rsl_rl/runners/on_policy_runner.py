@@ -67,13 +67,15 @@ class OnPolicyRunner:
         if enc_hidden_dims is not None:
             num_encoder_obs = self.env.num_obs - envcfg.env.num_proprio_obs
             # num_actor_obs = envcfg.env.num_proprio_obs + enc_out_size
-            if os.environ["ISAAC_BLIND"] == "True":
-                num_actor_obs = envcfg.env.num_proprio_obs
-            else:
-                num_actor_obs = envcfg.env.num_proprio_obs + enc_hidden_dims[-1]
+            num_actor_obs = envcfg.env.num_proprio_obs + enc_hidden_dims[-1]
         else:
             num_actor_obs = self.env.num_obs
             num_encoder_obs = -1
+
+        if os.environ["ISAAC_BLIND"] == "True":
+            num_actor_obs = envcfg.env.num_proprio_obs
+            num_critic_obs -= 187
+
 
         actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
         actor_critic: ActorCritic = actor_critic_class(
