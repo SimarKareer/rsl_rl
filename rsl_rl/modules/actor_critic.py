@@ -29,18 +29,18 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from torch.nn.modules import rnn
+
 from rsl_rl.modules.models.simple_cnn import SimpleCNN
 
 
 class DmEncoder(nn.Module):
     def __init__(self, num_encoder_obs, encoder_hidden_dims):
         super().__init__()
-        
+
         self.encoder = nn.Sequential(
             nn.Linear(num_encoder_obs, encoder_hidden_dims[0]),
             nn.ReLU(),
@@ -48,7 +48,7 @@ class DmEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(encoder_hidden_dims[1], encoder_hidden_dims[2]),
         )
-    
+
     def forward(self, dm):
         """
         Encodes depth map
@@ -56,6 +56,7 @@ class DmEncoder(nn.Module):
             dm: a depth map usually shape (187)
         """
         return self.encoder(dm)
+
 
 class ActorCritic(nn.Module):
     is_recurrent = False
@@ -127,7 +128,7 @@ class ActorCritic(nn.Module):
         #     self.encoder = SimpleCNN(observationSpace(), encoder_output_size)
         # else:
         #     self.encoder = None
-        
+
         if num_encoder_obs != -1 and encoder_hidden_dims is not None:
             self.encoder = DmEncoder(num_encoder_obs, encoder_hidden_dims)
         else:
@@ -183,10 +184,11 @@ class ActorCritic(nn.Module):
         mean = self.actor(observations)
         self.distribution = Normal(mean, mean * 0.0 + self.std)
 
-    
     def _trans_dm(self, depth_map):
         envs, _ = depth_map.shape
-        depth_map = depth_map.view(envs, self.encoder_input_rows, self.encoder_input_cols, 1)
+        depth_map = depth_map.view(
+            envs, self.encoder_input_rows, self.encoder_input_cols, 1
+        )
 
         dm_dict = {"depth": depth_map}
         return dm_dict
