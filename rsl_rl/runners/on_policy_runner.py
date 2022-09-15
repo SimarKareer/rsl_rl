@@ -67,7 +67,10 @@ class OnPolicyRunner:
         if enc_hidden_dims is not None:
             num_encoder_obs = self.env.num_obs - envcfg.env.num_proprio_obs
             # num_actor_obs = envcfg.env.num_proprio_obs + enc_out_size
-            num_actor_obs = envcfg.env.num_proprio_obs + enc_hidden_dims[-1]
+            if os.environ["ISAAC_BLIND"] == "True":
+                num_actor_obs = envcfg.env.num_proprio_obs
+            else:
+                num_actor_obs = envcfg.env.num_proprio_obs + enc_hidden_dims[-1]
         else:
             num_actor_obs = self.env.num_obs
             num_encoder_obs = -1

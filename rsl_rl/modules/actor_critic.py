@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
+import os
 
 import numpy as np
 import torch
@@ -194,7 +195,11 @@ class ActorCritic(nn.Module):
         return dm_dict
 
     def act(self, observations, **kwargs):
-        if self.train_type == "priv" and self.encoder is not None:
+        if (
+            self.train_type == "priv"
+            and self.encoder is not None
+            and os.environ["ISAAC_BLIND"] != "True"
+        ):
             depth_map = observations[:, 48:]  # everything after inital observations
             # dm_dict = self._trans_dm(depth_map)
             enc_depth_map = self.encoder(depth_map)
