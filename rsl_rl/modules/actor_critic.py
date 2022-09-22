@@ -218,9 +218,10 @@ class ActorCritic(nn.Module):
             depth_map = observations[:, 48:]  # everything after inital observations
             # dm_dict = self._trans_dm(depth_map)
             enc_depth_map = self.encoder(depth_map)
-            observations = torch.cat((observations[:, :48], enc_depth_map), dim=-1)
-
-        actions_mean = self.actor(observations)
+            actor_input = torch.cat((observations[:, :48], enc_depth_map), dim=-1)
+        else:
+            actor_input = observations
+        actions_mean = self.actor(actor_input)
         return actions_mean
 
     def evaluate(self, critic_observations, **kwargs):
